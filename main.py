@@ -18,27 +18,10 @@ row_a2 = machine.Pin(27, machine.Pin.OUT)
 row_a3 = machine.Pin(14, machine.Pin.OUT)
 row_code = [row_switch, row_a0, row_a1, row_a2, row_a3]
 
-i2c = I2C(0, scl=Pin(22), sda=Pin(21), freq=400000)
+adc_i2c = I2C(0, scl=Pin(22), sda=Pin(21), freq=400000)
+adc = ads1x15.ADS1115(adc_i2c, 72, 1)
 
-# ADS1115默认地址
-ADS1115_ADDRESS = 0x48
-
-# ADS1115寄存器
-ADS1115_CONVERSION_REG = 0x00
-ADS1115_CONFIG_REG = 0x01
-
-def read_ads1115():
-    data = i2c.readfrom_mem(ADS1115_ADDRESS, ADS1115_CONVERSION_REG, 2)
-    raw_adc = int.from_bytes(data, 'big')
-    # 如果结果为负数
-    if raw_adc & 0x8000:
-        raw_adc -= 1 << 16
-    # 根据FSR计算实际电压值
-    voltage = raw_adc * 4.096 / 32768
-    return voltage
-
-# 读取并打印电压值
-voltage = read_ads1115()
+voltage = adc.read(channel1 = 0)
 print("Voltage:", voltage, "V")
 
 def select(index, mux, pin):
