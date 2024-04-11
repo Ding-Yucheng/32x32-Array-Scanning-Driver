@@ -39,7 +39,7 @@ class MyMCU:
         self.mode.value(hl)
 
     def show_adc_reading(self):
-        voltage = self.adc.read(channel1 = 0)
+        voltage = self.adc.read(channel1 = 1)
         print("Voltage:", voltage, "V")
 
     @staticmethod
@@ -64,7 +64,7 @@ class MyMCU:
             for j in range(32):
                 self.set_mux(self.col_pins, self.col_mask[j])
                 time.sleep_ms(1)
-                self.image[i][j] = self.adc.read(channel1 = 0)
+                self.image[i][j] = self.adc.read(channel1 = 1)
         
 row_type = 0
 col_type = 1
