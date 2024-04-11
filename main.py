@@ -23,6 +23,9 @@ class MyMCU:
         adc_i2c = I2C(0, scl=Pin(22), sda=Pin(21), freq=400000)
         self.adc = ads1x15.ADS1115(adc_i2c, 72, 1)
         
+        self.mode = machine.Pin(16, machine.Pin.OUT) # 0: Low Freq; 1: High Freq
+        self.mode.value(0)
+        
         # Initialize Image Data Array
         self.image = [[0 for _ in range(32)] for _ in range(32)]
     
@@ -32,6 +35,9 @@ class MyMCU:
         self.col_switch = machine.Pin(32, machine.Pin.OUT)
         self.col_pins = [machine.Pin(pin, machine.Pin.OUT) for pin in [17, 5, 25, 33, 32]]
     
+    def mode_switch(self, hl):
+        self.mode.value(hl)
+
     def show_adc_reading(self):
         voltage = self.adc.read(channel1 = 0)
         print("Voltage:", voltage, "V")
@@ -60,3 +66,8 @@ class MyMCU:
                 time.sleep_ms(1)
                 self.image[i][j] = self.adc.read(channel1 = 0)
         
+row_type = 0
+col_type = 1
+my_mcu = MyMCU(row_type, col_type)
+my_mcu.scan()
+print(my_mcu.image)
