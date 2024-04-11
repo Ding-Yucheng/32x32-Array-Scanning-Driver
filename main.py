@@ -30,7 +30,7 @@ class MyMCU:
         self.row_switch = machine.Pin(12, machine.Pin.OUT)
         self.row_pins = [machine.Pin(pin, machine.Pin.OUT) for pin in [14, 27, 15, 13, 12]]
         self.col_switch = machine.Pin(32, machine.Pin.OUT)
-        selfcol_pins = [machine.Pin(pin, machine.Pin.OUT) for pin in [17, 5, 25, 33, 32]]
+        self.col_pins = [machine.Pin(pin, machine.Pin.OUT) for pin in [17, 5, 25, 33, 32]]
     
     def show_adc_reading(self):
         voltage = self.adc.read(channel1 = 0)
