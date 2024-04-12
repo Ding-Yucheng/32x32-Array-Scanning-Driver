@@ -1,7 +1,7 @@
 import machine
 import time
-from machine import Pin, I2C
-import ads1x15
+from machine import Pin, I2C, DAC
+from ads1x15 import ADS1115
 
 class MyMCU:
     row_masks = [
@@ -21,10 +21,13 @@ class MyMCU:
         
         # Initialize ADC
         adc_i2c = I2C(0, scl=Pin(22), sda=Pin(21), freq=400000)
-        self.adc = ads1x15.ADS1115(adc_i2c, 0x48, 1)
+        self.adc = ADS1115(adc_i2c, 0x48, 1)
         
         self.mode = machine.Pin(16, machine.Pin.OUT) # 0: Low Freq; 1: High Freq
         self.mode.value(0)
+        
+        # Initialize DAC
+        self.dac = machine.DAC(machine.Pin(26, machine.Pin.OUT), bits = 8)
         
         # Initialize Image Data Array
         self.image = [[0 for _ in range(32)] for _ in range(32)]
@@ -39,7 +42,7 @@ class MyMCU:
         self.mode.value(hl)
 
     def show_adc_reading(self):
-        voltage = self.adc.read(channel1 = 0, channel2 = 1)
+        voltage = self.adc.raw_to_v(self.adc.read(channel1 = 1))
         print("Voltage:", voltage, "V")
 
     @staticmethod
@@ -64,13 +67,16 @@ class MyMCU:
             for j in range(32):
                 self.set_mux(self.col_pins, self.col_mask[j])
                 time.sleep_ms(1)
-                self.image[i][j] = self.adc.read(channel1 = 0, channel2 = 1)
+                self.image[i][j] = self.adc.raw_to_v(self.adc.read(channel1 = 1))
+                
+    def set_dac(self, voltage):
+        self.dac.write(int(255 * voltage / 3.3))
         
 row_type = 0
 col_type = 1
 my_mcu = MyMCU(row_type, col_type)
 my_mcu.select(16,16)
-print(1)
-for i in range(10000):
+for i in range(3):
+    my_mcu.set_dac(3)
     my_mcu.show_adc_reading()
     time.sleep(1)
