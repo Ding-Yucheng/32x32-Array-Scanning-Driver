@@ -75,8 +75,5 @@ class MyMCU:
 row_type = 0
 col_type = 1
 my_mcu = MyMCU(row_type, col_type)
-my_mcu.select(16,16)
-for i in range(3):
-    my_mcu.set_dac(3)
-    my_mcu.show_adc_reading()
-    time.sleep(1)
+my_mcu.scan()
+print(my_mcu.image)
