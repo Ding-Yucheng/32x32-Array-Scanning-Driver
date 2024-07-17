@@ -20,7 +20,7 @@ class MyMCU:
         
         # Initialize ADC
         adc_i2c = I2C(0, scl=Pin(22), sda=Pin(21), freq=400000)
-        self.adc = ADS1115(adc_i2c, 0x48, 0)
+        self.adc = ADS1115(adc_i2c, 0x48, 1)
         
         self.mode = machine.Pin(16, machine.Pin.OUT) # 0: Low Freq; 1: High Freq
         self.mode.value(0)
@@ -74,18 +74,23 @@ class MyMCU:
 row_type = 0
 col_type = 0
 my_mcu = MyMCU(row_type, col_type)
-my_mcu.select(16,16)
-time.sleep(10000)
-"""
-my_mcu.set_dac(0.5)
+
+my_mcu.set_dac(0)
+my_mcu.select(14,14)
+
+for i in range(100000):
+    my_mcu.show_adc_reading()
+    time.sleep_ms(10)
+
+'''
+my_mcu.set_dac(1)
 my_mcu.scan()
 print(my_mcu.image)
 filename = 'data.csv'
-
 # 打开文件，准备写入
 with open(filename, 'w') as file:
     for row in my_mcu.image:
         # 将每一行数据转换为逗号分割的字符串
         row_str = ','.join(str(item) for item in row)
         # 写入一行数据，并添加换行符
-        file.write(row_str + '\n')"""
+        file.write(row_str + '\n')'''
