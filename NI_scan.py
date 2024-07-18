@@ -19,6 +19,7 @@ def keiread(fileName):
     return curr
 
 def scan():
+    sttime = time.time()
     for i in range(32): #Loop multiplexer
         colChannel = "ch"+str(i)
         mux[0].connect(channel1=colChannel, channel2='com0')
@@ -29,14 +30,14 @@ def scan():
                 curr = keiread(fileName)
                 data = np.array(["{:.2f}".format(time.time()),i,j,float(curr)])
                 write_csv(fileName, data)
-                time.sleep(1)
             raw_data[i][j] = float(curr)
             mux[0].disconnect(channel1=rowChannel, channel2='com4')
         print(i)
         mux[0].disconnect(channel1=colChannel, channel2='com0')
+    print(time.time()-sttime)
     
 
-def plot_heatmap(data, title="Heatmap", color_map="viridis"):
+def plot_heatmap(data, filename, title="Heatmap", color_map="viridis"):
     """
     绘制热力图的函数
 
@@ -48,6 +49,7 @@ def plot_heatmap(data, title="Heatmap", color_map="viridis"):
     plt.imshow(data, cmap=color_map)
     plt.colorbar()
     plt.title(title)
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
     plt.show()
 
 def save_to_csv(array, filename):
@@ -72,7 +74,8 @@ print(kei.query("*IDN?"))
 #Functions
 timestr = time.strftime("%Y%m%d_%H%M%S")
 folder = 'compeye_data'
-fileName = folder+"/compeye_"+timestr+".csv"
+bias = '100mV'
+fileName = folder+"/compeye_"+timestr+'_'+bias+".csv"
 Path(folder).mkdir(parents=True, exist_ok=True)
 def write_csv(fileName,data):
     with open(fileName, 'a') as outfile:
@@ -92,10 +95,12 @@ raw_data = np.zeros((32, 32))
 fig = plt.figure(figsize = (10, 8))
 
 scan()
-save_to_csv(raw_data,folder+"/compeye_"+time.strftime("%Y%m%d_%H%M%S")+"Fig.csv")
+save_to_csv(raw_data,folder+"/compeye_"+time.strftime("%Y%m%d_%H%M%S")+'_'+bias+"_Fig.csv")
 plt.ioff()
 plt.clf()
-plot_heatmap(raw_data)
+pngname= folder+"/compeye_"+time.strftime("%Y%m%d_%H%M%S")+'_'+bias+'.png'
+plot_heatmap(raw_data, pngname)
+
 while False:
     scan()
     plt.ioff()
