@@ -7,6 +7,7 @@ import matplotlib as mpl
 from matplotlib import ticker, cm
 from itertools import islice
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
 UDP_IP = '127.0.0.2'
@@ -21,16 +22,22 @@ def keiread(fileName):
 def scan():
     sttime = time.time()
     for i in range(32): #Loop multiplexer
-        colChannel = "ch"+str(i)
+        colChannel = "ch"+str((i%2)*16 + int(i/2))
         mux[0].connect(channel1=colChannel, channel2='com0')
-        for j in range(32):
-            rowChannel = "ch"+str(j+64)
+        for j in range(31):
+            rowChannel = "ch"+str(((j+1)%2)*16+int(j/2)+64)
             mux[0].connect(channel1=rowChannel, channel2='com4')
             for t in range(1):
                 curr = keiread(fileName)
                 data = np.array(["{:.2f}".format(time.time()),i,j,float(curr)])
                 write_csv(fileName, data)
-            raw_data[i][j] = float(curr)
+            if mode == 3:
+                if on[31-j][31-i] > -0.0000002:
+                    raw_data[31-j][31-i] = 0
+                else:
+                    raw_data[31-j][31-i] = (float(curr)-off[31-j][31-i])/(on[31-j][31-i]-off[31-j][31-i])
+            else:
+                raw_data[31-j][31-i] = float(curr)
             mux[0].disconnect(channel1=rowChannel, channel2='com4')
         print(i)
         mux[0].disconnect(channel1=colChannel, channel2='com0')
@@ -62,7 +69,7 @@ def save_to_csv(array, filename):
     """
     with open(filename, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerows(array)
+        writer.writerows(array)  
  
 #isnt initial
 rm = pyvisa.ResourceManager()
@@ -74,7 +81,7 @@ print(kei.query("*IDN?"))
 #Functions
 timestr = time.strftime("%Y%m%d_%H%M%S")
 folder = 'compeye_data'
-bias = '100mV'
+bias = '-500mV'
 fileName = folder+"/compeye_"+timestr+'_'+bias+".csv"
 Path(folder).mkdir(parents=True, exist_ok=True)
 def write_csv(fileName,data):
@@ -84,18 +91,34 @@ def write_csv(fileName,data):
 
 #initializing NI box
 mux=[]
-mux.append(niswitch.Session(resource_name="PXI1Slot9", topology="2530/1-Wire Dual 64x1 Mux"))
-print('PXI-mux init ok')
-
+mux.append(niswitch.Session(resource_name="PXI1Slot9"))
+print('PXI-mux2 init ok')
 mux[0].reset()
+
 time.sleep(1)
+
+
+mode = 3 # 0 for direct scan, 1 for dark current, 2 for light current, 3 for relative scan
 
 raw_data = np.zeros((32, 32))
 
 fig = plt.figure(figsize = (10, 8))
 
+if mode == 3:
+    df = pd.read_csv(folder+'/baseline_dark.csv',header=None)
+    off = df.values
+    df = pd.read_csv(folder+'/baseline_light.csv',header=None)
+    on = df.values
+
 scan()
-save_to_csv(raw_data,folder+"/compeye_"+time.strftime("%Y%m%d_%H%M%S")+'_'+bias+"_Fig.csv")
+if mode == 1:
+    save_to_csv(raw_data, folder+"/baseline_dark.csv")
+if mode == 2:
+    save_to_csv(raw_data, folder+"/baseline_light.csv")
+if mode == 0:
+    save_to_csv(raw_data,folder+"/compeye_"+time.strftime("%Y%m%d_%H%M%S")+'_'+bias+"_Fig.csv")
+if mode == 3:
+    save_to_csv(np.hstack((raw_data, off, on)),folder+"/compeye_"+time.strftime("%Y%m%d_%H%M%S")+'_'+bias+"_Fig_rf.csv")
 plt.ioff()
 plt.clf()
 pngname= folder+"/compeye_"+time.strftime("%Y%m%d_%H%M%S")+'_'+bias+'.png'
