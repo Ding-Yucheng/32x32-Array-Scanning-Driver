@@ -81,7 +81,7 @@ print(kei.query("*IDN?"))
 #Functions
 timestr = time.strftime("%Y%m%d_%H%M%S")
 folder = 'compeye_data'
-bias = '-500mV'
+bias = '-200mV'
 fileName = folder+"/compeye_"+timestr+'_'+bias+".csv"
 Path(folder).mkdir(parents=True, exist_ok=True)
 def write_csv(fileName,data):
