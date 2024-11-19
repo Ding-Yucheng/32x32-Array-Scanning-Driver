@@ -21,28 +21,67 @@ def keiread(fileName):
 
 def scan():
     sttime = time.time()
+    #keitime = 0
     for i in range(32): #Loop multiplexer
-        colChannel = "ch"+str((i%2)*16 + int(i/2))
+        
+        colNo = (i%2)*16 + int(i/2)
+        '''
+        if colNo % 2:
+            colNo -= 1
+        else:
+            colNo += 1
+        
+        
+        if i % 2:
+            colNo = int(i / 2)
+        else:
+            colNo = int(i / 2) + 16
+        if colNo % 2:
+            colNo -= 1
+        else:
+            colNo += 1
+        '''
+        colChannel = "ch"+str(colNo)
         mux[0].connect(channel1=colChannel, channel2='com0')
-        for j in range(31):
-            rowChannel = "ch"+str(((j+1)%2)*16+int(j/2)+64)
+        for j in range(32):
+            
+            rowNo = (j%2)*16+int(j/2)+64
+            '''
+            if rowNo % 2:
+                rowNo -= 1
+            else:
+                rowNo += 1
+            
+            
+            if j % 2:
+                rowNo = int(j / 2) + 64
+            else:
+                rowNo = int(j / 2) + 16 + 64
+            if rowNo % 2:
+                rowNo -= 1
+            else:
+                rowNo += 1
+            '''
+            rowChannel = "ch"+str(rowNo)
             mux[0].connect(channel1=rowChannel, channel2='com4')
             for t in range(1):
+                #keist = time.time()
                 curr = keiread(fileName)
+                #keitime += (time.time()-keist)
                 data = np.array(["{:.2f}".format(time.time()),i,j,float(curr)])
                 write_csv(fileName, data)
             if mode == 3:
-                if on[31-j][31-i] > -0.0000002:
-                    raw_data[31-j][31-i] = 0
+                if on[j][31-i] > -0.0000002:
+                    raw_data[j][31-i] = 0
                 else:
-                    raw_data[31-j][31-i] = (float(curr)-off[31-j][31-i])/(on[31-j][31-i]-off[31-j][31-i])
+                    raw_data[j][31-i] = (float(curr)-off[j][31-i])/(on[j][31-i]-off[j][31-i])
             else:
-                raw_data[31-j][31-i] = float(curr)
+                raw_data[j][31-i] = float(curr)
             mux[0].disconnect(channel1=rowChannel, channel2='com4')
         print(i)
         mux[0].disconnect(channel1=colChannel, channel2='com0')
     print(time.time()-sttime)
-    
+    #print(keitime)
 
 def plot_heatmap(data, filename, title="Heatmap", color_map="viridis"):
     """
@@ -98,7 +137,7 @@ mux[0].reset()
 time.sleep(1)
 
 
-mode = 3 # 0 for direct scan, 1 for dark current, 2 for light current, 3 for relative scan
+mode = 0 # 0 for direct scan, 1 for dark current, 2 for light current, 3 for relative scan
 
 raw_data = np.zeros((32, 32))
 
