@@ -48,9 +48,9 @@ def construct_B(n = 32):
             row_idx = i * n + j
             # 行和部分
             for k in range(n):
-                B[row_idx, i * n + k] += 0.2            # 列和部分
+                B[row_idx, i * n + k] += 0.3            # 列和部分
             for k in range(n):
-                B[row_idx, k * n + j] += 0.2
+                B[row_idx, k * n + j] += 0.1
             # 减去 A[i,j]
             B[row_idx, row_idx] += 0.6
     inverse_B = np.linalg.inv(B)
@@ -78,7 +78,7 @@ n = 32
 M = load_from_csv('compeye_data/compeye_20240717_234219Fig.csv')
 B,Bi = construct_B()
 m = M.flatten()
-ra = B @ m
+ra = Bi @ m
 
 rA = ra.reshape(n, n)
 
