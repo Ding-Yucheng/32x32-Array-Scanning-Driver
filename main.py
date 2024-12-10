@@ -1,96 +1,92 @@
-import machine
-import time
-from machine import Pin, I2C, DAC
+from machine import Pin, DAC, I2C, UART
 from ads1x15 import ADS1115
+import time
 
-class MyMCU:
-    row_masks = [
-    [1, 16, 9, 24, 5, 20, 13, 28, 3, 18, 11, 26, 7, 22, 15, 30, 14, 31, 6, 23, 10, 27, 2, 19, 12, 29, 4, 21, 8, 25, 0, 17], # First pin in U1
-    [1, 16, 3, 18, 5, 20, 7, 22, 9, 24, 11, 26, 13, 28, 15, 30, 31, 14, 29, 12, 27, 10, 25, 8, 23, 6, 21, 4, 19, 2, 17, 0]  # First pin in U3
-    ]
-    col_masks = [
-    [0, 17, 8, 25, 4, 21, 12, 29, 2, 19, 10, 27, 6, 23, 14, 31, 15, 30, 7, 22, 11, 26, 3, 18, 13, 28, 5, 20, 9, 24, 1, 16], # First pin in U2
-    [17, 0, 19, 2, 21, 4, 23, 6, 25, 8, 27, 10, 29, 12, 31, 14, 15, 30, 13, 28, 11, 26, 9, 24, 7, 22, 5, 20, 3, 18, 1, 16]  # First pin in U4
-    ]
-    def __init__(self, row_type, col_type):
-        # Initialize Multiplexers
-        self.init_pins()
-        self.row_mask = MyMCU.row_masks[row_type]
-        self.col_mask = MyMCU.col_masks[col_type]
-        
-        # Initialize ADC
-        adc_i2c = I2C(0, scl=Pin(22), sda=Pin(21), freq=400000)
-        self.adc = ADS1115(adc_i2c, 0x48, 1)
-        
-        self.mode = machine.Pin(16, machine.Pin.OUT) # 0: Low Freq; 1: High Freq
-        self.mode.value(0)
-        
-        # Initialize DAC
-        self.dac = machine.DAC(machine.Pin(26, machine.Pin.OUT), bits = 8)
-        
-        # Initialize Image Data Array
-        self.image = [[0 for _ in range(32)] for _ in range(32)]
-    
-    def init_pins(self):
-        self.row_switch = machine.Pin(12, machine.Pin.OUT)
-        self.row_pins = [machine.Pin(pin, machine.Pin.OUT) for pin in [14, 27, 15, 13, 12]]
-        self.col_switch = machine.Pin(32, machine.Pin.OUT)
-        self.col_pins = [machine.Pin(pin, machine.Pin.OUT) for pin in [17, 5, 25, 33, 32]]
-    
-    def mode_switch(self, hl):
-        self.mode.value(hl)
+# 全局变量用于存储传感器数据
+sensor_data = [[0 for _ in range(32)] for _ in range(32)]
+col_mask = [19, 2, 17, 0, 23, 6, 21, 4, 27, 10, 25, 8, 31, 14, 29, 12, 13, 28, 15, 30, 9, 24, 11, 26, 5, 20, 7, 22, 1, 16, 3, 18]
+row_mask = [3, 18, 1, 16, 7, 22, 5, 20, 11, 26, 9, 24, 15, 30, 13, 28, 29, 12, 31, 14, 25, 8, 27, 10, 21, 4, 23, 6, 17, 0, 19, 2]
 
-    def show_adc_reading(self):
-        voltage = self.adc.raw_to_v(self.adc.read(channel1 = 1))
-        print(voltage)
+# 初始化串口，根据实际连接的串口引脚和需求调整参数
+uart = UART(1, baudrate=115200, bits=8, parity=None, stop=1)
 
-    @staticmethod
-    def number_to_binary_array(index):
-        if 0 <= index <= 31:
-            return [(index >> bit) & 1 for bit in range(5)]
-        else:
-            raise ValueError("Number is not in the range 0 to 31.")
+##########MUX INITIALIZING##########
+Pin_R0 = Pin(12, mode=Pin.OUT, value=0)  # rows
+Pin_R1 = Pin(13, mode=Pin.OUT, value=0)
+Pin_R2 = Pin(15, mode=Pin.OUT, value=0)
+Pin_R3 = Pin(27, mode=Pin.OUT, value=0)
+Pin_R4 = Pin(14, mode=Pin.OUT, value=0)
+R_Pins = [Pin_R0, Pin_R1, Pin_R2, Pin_R3, Pin_R4]
 
-    def set_mux(self, pins, index):
-        binary_array = self.number_to_binary_array(index)
-        for i in range(5):
-            pins[i].value(binary_array[i])
+Pin_C0 = Pin(18, mode=Pin.OUT, value=0)  # columns
+Pin_C1 = Pin(33, mode=Pin.OUT, value=0)
+Pin_C2 = Pin(25, mode=Pin.OUT, value=0)
+Pin_C3 = Pin(5, mode=Pin.OUT, value=0)
+Pin_C4 = Pin(17, mode=Pin.OUT, value=0)
+C_Pins = [Pin_C0, Pin_C1, Pin_C2, Pin_C3, Pin_C4]
+####################################
 
-    def select(self, r, c):
-        self.set_mux(self.row_pins, self.row_mask[r])
-        self.set_mux(self.col_pins, self.col_mask[c])
-    
-    def scan(self):
-        for i in range(32):
-            self.set_mux(self.row_pins, self.row_mask[i])
-            for j in range(32):
-                self.set_mux(self.col_pins, self.col_mask[j])
-                time.sleep_ms(1)
-                self.image[i][j] = self.adc.raw_to_v(self.adc.read(channel1 = 1))
-                
-    def set_dac(self, voltage):
-        self.dac.write(int(255 * voltage / 3.3))
-        
-row_type = 0
-col_type = 0
-my_mcu = MyMCU(row_type, col_type)
+##########DAC INITIALIZING##########
+Pin_DAC = Pin(26, Pin.OUT)
+dac = DAC(Pin_DAC)
+####################################
 
-my_mcu.set_dac(0)
-my_mcu.select(14,14)
+##########ADC INITIALIZING##########
+Pin_sda = Pin(21, Pin.OUT)
+Pin_scl = Pin(22, Pin.OUT)
+i2c = I2C(1, scl=Pin_scl, sda=Pin_sda)
 
-for i in range(100000):
-    my_mcu.show_adc_reading()
-    time.sleep_ms(10)
+adc = ADS1115(i2c, 0x48, 3)
+adc.set_conv(6, 1, None)
+####################################
 
-'''
-my_mcu.set_dac(1)
-my_mcu.scan()
-print(my_mcu.image)
-filename = 'data.csv'
-# 打开文件，准备写入
-with open(filename, 'w') as file:
-    for row in my_mcu.image:
-        # 将每一行数据转换为逗号分割的字符串
-        row_str = ','.join(str(item) for item in row)
-        # 写入一行数据，并添加换行符
-        file.write(row_str + '\n')'''
+Pin_HL_Switch = Pin(16, mode=Pin.OUT)  # initialize pin controlling HL switch
+Pin_HL_Switch.value(0)  # 0 for low-freq, 1 for high-freq
+
+
+def select(pins, index):
+    for i in range(5):
+        pins[i].value(index & (1 << i))
+
+
+def scan():
+    t = time.time()
+    dac.write(20)
+    for i in range(32):
+        select(R_Pins, row_mask[i])
+        for j in range(32):
+            select(C_Pins, col_mask[j])
+            #time.sleep(0.01)#stablize, this number could be adjusted
+            for rep in range(20):
+                adc.read_rev()
+            value = adc.read_rev()
+            sensor_data[i][j] = value
+            # print(value)
+            # print(i, j, adc.raw_to_v(value))
+
+    dac.write(0)
+    print(time.time() - t)
+    return sensor_data
+
+
+def list_to_str(data):
+    sarr = 'str'
+    for line in data:
+        for i in line:
+            sarr += str(i)
+            sarr += '.'
+    sarr += 'end'
+    return sarr
+
+
+while True:
+    if uart.any():
+        command = uart.readline().decode('utf-8').strip()
+        if command == "scan":
+            scanned_data = scan()
+            data_to_send = list_to_str(scanned_data).encode('utf-8')
+            try:
+                uart.write(data_to_send)
+                print(data_to_send)
+            except Exception as e:
+                print("串口发送数据出现异常:", e)
