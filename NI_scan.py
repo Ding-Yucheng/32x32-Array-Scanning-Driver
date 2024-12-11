@@ -71,11 +71,18 @@ def scan():
                 data = np.array(["{:.2f}".format(time.time()),i,j,float(curr)])
                 write_csv(fileName, data)
             if mode == 3:
-                if on[j][31-i] > -0.0000002:
+                if on[j][31-i] > 0.000015:
                     raw_data[j][31-i] = 0
                 else:
                     raw_data[j][31-i] = (float(curr)-off[j][31-i])/(on[j][31-i]-off[j][31-i])
+                if raw_data[j][31-i] > 1:
+                    raw_data[j][31-i] = 1
+                if raw_data[j][31-i] < 0:
+                    raw_data[j][31-i] = 0
+
             else:
+                if float(curr) > 0.000015:
+                    curr = 0
                 raw_data[j][31-i] = float(curr)
             mux[0].disconnect(channel1=rowChannel, channel2='com4')
         print(i)
@@ -119,8 +126,8 @@ print(kei.query("*IDN?"))
 
 #Functions
 timestr = time.strftime("%Y%m%d_%H%M%S")
-folder = 'compeye_data'
-bias = '-200mV'
+folder = 'Faye_data'
+bias = '0 mV'
 fileName = folder+"/compeye_"+timestr+'_'+bias+".csv"
 Path(folder).mkdir(parents=True, exist_ok=True)
 def write_csv(fileName,data):
@@ -136,9 +143,9 @@ mux[0].reset()
 
 time.sleep(1)
 
-
-mode = 0 # 0 for direct scan, 1 for dark current, 2 for light current, 3 for relative scan
-
+########
+mode = 3 # 0 for direct scan, 1 for dark current, 2 for light current, 3 for relative scan
+########
 raw_data = np.zeros((32, 32))
 
 fig = plt.figure(figsize = (10, 8))
