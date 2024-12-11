@@ -136,14 +136,14 @@ class Stats(QMainWindow):
     def Handle_Update_Image(self, new_data):
         
         self.raw_data = new_data.reshape(32, 32)
-        '''
-        flat_index = np.argmax(self.matrice)
+
+        flat_index = np.argmax(self.raw_data)
 
         # 通过unravel_index函数将展平索引转换为二维坐标（行、列索引）
-        row_index, col_index = np.unravel_index(flat_index, self.matrice.shape)
+        row_index, col_index = np.unravel_index(flat_index, self.raw_data.shape)
 
-        print(f"矩阵中的最大值是 {self.matrice[row_index, col_index]}，其坐标为（{row_index}，{col_index}）")
-        '''
+        print(f"矩阵中的最大值是 {self.raw_data[row_index, col_index]}，其坐标为（{row_index}，{col_index}）")
+
         if self.dark_cali and self.light_cali:
             for i in range(32):
                 for j in range(32):
@@ -153,6 +153,10 @@ class Stats(QMainWindow):
                         self.update[i][j] = 0
                     else:
                         self.update[i][j] = (self.raw_data[i][j] - self.dark_cur[i][j])/(self.light_cur[i][j]-self.dark_cur[i][j])
+                    if self.update[i][j] > 3:
+                        self.update[i][j] = 0
+                    elif self.update[i][j] >= 1:
+                        self.update[i][j] = 1
             self.img_item.setImage(self.update)
         else:
             self.img_item.setImage(self.raw_data)

@@ -6,10 +6,11 @@ import time
 ############ Setting ###############
 freq = 0 # 0 for low-freq, 1 for high-freq
 scan_interval = 10 # ms
-discard_sampling = 5
-sampling_number = 2
-
-adc_gain = 1
+discard_sampling = 10
+sampling_number = 3
+single_channel_mode = False
+voltage = 0.0 # Volt
+adc_gain = 2
 '''
     0: 6.144 V,  2/3x
     1: 4.096 V,  1x
@@ -18,7 +19,7 @@ adc_gain = 1
     4: 0.512 V,  8x
     5: 0.256 V,  16x
 '''
-adc_speed = 2
+adc_speed = 7
 '''
     0: 8 SPS
     1: 16 SPS
@@ -31,9 +32,9 @@ adc_speed = 2
 '''
 ####################################
 
-
-col_mask = [19, 2, 17, 0, 23, 6, 21, 4, 27, 10, 25, 8, 31, 14, 29, 12, 13, 28, 15, 30, 9, 24, 11, 26, 5, 20, 7, 22, 1, 16, 3, 18]
-row_mask = [3, 18, 1, 16, 7, 22, 5, 20, 11, 26, 9, 24, 15, 30, 13, 28, 29, 12, 31, 14, 25, 8, 27, 10, 21, 4, 23, 6, 17, 0, 19, 2]
+voltage = int(voltage*102)
+row_mask = [19, 2, 17, 0, 23, 6, 21, 4, 27, 10, 25, 8, 31, 14, 29, 12, 13, 28, 15, 30, 9, 24, 11, 26, 5, 20, 7, 22, 1, 16, 3, 18]
+col_mask = [3, 18, 1, 16, 7, 22, 5, 20, 11, 26, 9, 24, 15, 30, 13, 28, 29, 12, 31, 14, 25, 8, 27, 10, 21, 4, 23, 6, 17, 0, 19, 2]
 #########UART INITIALIZING##########
 uart = UART(1, baudrate=115200, bits=8, parity=None, stop=1)
 ####################################
@@ -65,7 +66,6 @@ Pin_scl = Pin(22, Pin.OUT)
 i2c = I2C(1, scl=Pin_scl, sda=Pin_sda)
 
 adc = ADS1115(i2c, 0x48, adc_gain)
-adc.set_conv(adc_speed, 1, None)
 ####################################
 
 Pin_HL_Switch = Pin(16, mode=Pin.OUT)  # initialize pin controlling HL switch
@@ -80,18 +80,17 @@ def select(pins, index):
 
 def scan():
     t = time.time()
-    dac.write(20)
+    dac.write(voltage)
     for i in range(32):
         select(R_Pins, row_mask[i])
         for j in range(32):
             select(C_Pins, col_mask[j])
             time.sleep_ms(scan_interval)
             for rep in range(discard_sampling):
-                adc.read_rev()
+                adc.read(adc_speed, 1, None)
             value = 0
             for rep in range(sampling_number):
-                print(1)
-                value += adc.read_rev()
+                value += adc.read(adc_speed, 1, None)
             sensor_data[i][j] = int(value / sampling_number)
 
     dac.write(0)
@@ -106,6 +105,14 @@ def list_to_str(data):
             sarr += '.'
     sarr += 'end'
     return sarr
+
+if single_channel_mode and not freq:
+    dac.write(voltage)
+    select(R_Pins, row_mask[4])
+    select(C_Pins, col_mask[24])
+    while True:
+        print(adc.read(adc_speed, 1, None))
+        time.sleep(0.1)
 
 while not freq:
     if uart.any():
@@ -123,10 +130,7 @@ while not freq:
             except Exception as e:
                 print("Serial Error: ", e)
 if freq:
-    dac.write(0)
-    select(R_Pins, col_mask[12])
-    select(C_Pins, col_mask[20])
-
-while freq:
-    print(adc.read_rev())
-    time.sleep(0.1)
+    dac.write(voltage)
+    select(R_Pins, row_mask[4])
+    select(C_Pins, col_mask[24])
+    time.sleep(100000)
