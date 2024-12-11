@@ -90,6 +90,7 @@ def scan():
                 adc.read_rev()
             value = 0
             for rep in range(sampling_number):
+                print(1)
                 value += adc.read_rev()
             sensor_data[i][j] = int(value / sampling_number)
 
@@ -113,6 +114,7 @@ while not freq:
         print("Serial Received: ", command)
         if command == "scan":
             print("Scanning...")
+            scan()
             data_to_send = list_to_str(sensor_data).encode('utf-8')
             try:
                 uart.write(data_to_send)
