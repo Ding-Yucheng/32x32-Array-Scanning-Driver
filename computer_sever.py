@@ -6,12 +6,18 @@ from PyQt5.QtCore import pyqtSlot, QObject, pyqtSignal, QThread
 from PyQt5.QtWidgets import QMainWindow, QTextEdit
 import numpy as np
 import pyqtgraph as pg
-import bluetooth
 import serial  # 导入serial库用于串口操作
+from datetime import datetime
 
 # 全局变量用于初始化串口，这里的参数需根据实际情况调整
 ser = serial.Serial('COM3', 115200, timeout=0.1)
 
+global folder
+folder = 'esp_data/'
+
+def Save_Csv(fileName, data):
+    csv_file_path = fileName + '.csv'
+    np.savetxt(csv_file_path, data, delimiter=',', fmt='%.8f')
 
 class EmittingStream(QObject):
     textWritten = pyqtSignal(str)
@@ -31,10 +37,10 @@ class SerialReadThread(QThread):
         self.is_running = True
         while self.is_running:
             try:
-                # 先发送扫描信号
-                ser.write(b'scan\n')
-                print("sent")
-                while not ser.in_waiting:
+                msg = "scan\n"
+                ser.write(msg.encode('utf-8'))
+                print("Serial Sent: ", msg)
+                while self.is_running and not ser.in_waiting:
                     time.sleep(0.1)
                 if ser.in_waiting:  # 检查串口是否有数据可读
                     print("rec")
@@ -45,6 +51,9 @@ class SerialReadThread(QThread):
                         int_data_list = list(map(int, data_list))
                         np_data = np.array(int_data_list).reshape(32, 32)
                         self.update_data.emit(np_data)
+                        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                        filename = folder + f"Autosave_{timestamp}.csv"
+                        Save_Csv(filename, np_data)
                     else:
                         print("error")
 
@@ -63,7 +72,7 @@ class Stats(QMainWindow):
         super().__init__()
         # Load UI
         self.ui = uic.loadUi("ScanGUI.ui", self)
-        self.setWindowTitle("Gas Source Tracking System")
+        self.setWindowTitle("Esp Scanning System")
 
         # Output Display
         sys.stdout = EmittingStream(textWritten=self.normalOutputWritten)
@@ -75,6 +84,11 @@ class Stats(QMainWindow):
 
         # Initialize data
         self.data = np.arange(1024).reshape(32, 32)
+        self.dark_cur = np.zeros(1024).reshape(32, 32)
+        self.light_cur = np.zeros(1024).reshape(32, 32)
+        self.update = np.zeros(1024).reshape(32, 32)
+        self.dark_cali = False
+        self.light_cali = False
 
         # 创建串口读取线程实例
         self.serial_read_thread = SerialReadThread()
@@ -83,6 +97,9 @@ class Stats(QMainWindow):
         # Events
         self.ui.scan.clicked.connect(self.Scan)
         self.ui.stop.clicked.connect(self.Stop)
+        self.ui.dark_record.clicked.connect(self.Dark)
+        self.ui.light_record.clicked.connect(self.Light)
+        self.ui.save_csv.clicked.connect(self.Manual_Save_Csv)
 
         # Form Greyscale Color Map
         colors = [(i, i / 2, 0) for i in range(256)]
@@ -117,22 +134,62 @@ class Stats(QMainWindow):
 
     @pyqtSlot(np.ndarray)
     def Handle_Update_Image(self, new_data):
-        matrice = new_data.reshape(32, 32)
-        self.img_item.setImage(matrice)
+        
+        self.raw_data = new_data.reshape(32, 32)
+        '''
+        flat_index = np.argmax(self.matrice)
+
+        # 通过unravel_index函数将展平索引转换为二维坐标（行、列索引）
+        row_index, col_index = np.unravel_index(flat_index, self.matrice.shape)
+
+        print(f"矩阵中的最大值是 {self.matrice[row_index, col_index]}，其坐标为（{row_index}，{col_index}）")
+        '''
+        if self.dark_cali and self.light_cali:
+            for i in range(32):
+                for j in range(32):
+                    if self.dark_cur[i][j] >= self.light_cur[i][j]:
+                        self.update[i][j] = 0
+                    elif self.dark_cur[i][j] >= self.raw_data[i][j]:
+                        self.update[i][j] = 0
+                    else:
+                        self.update[i][j] = (self.raw_data[i][j] - self.dark_cur[i][j])/(self.light_cur[i][j]-self.dark_cur[i][j])
+            self.img_item.setImage(self.update)
+        else:
+            self.img_item.setImage(self.raw_data)
         self.show()
 
     def Scan(self):
         try:
-            # 这里不再创建ScanThread，而是直接操作serial_read_thread
             if not self.serial_read_thread.isRunning():
                 print("Start Serial Reading...")
                 self.serial_read_thread.start()
-        except:
-            print("线程相关错误.")
+        except Exception as e:
+            print("Thread Error: ", e)
+
+    def Dark(self):
+        self.dark_cur = self.raw_data
+        self.dark_cali = True
+        print("dark record")
+        
+    def Light(self):
+        self.light_cur = self.raw_data
+        self.light_cali = True
+        print("light record")
 
     def Stop(self):
         self.serial_read_thread.stop()
         print("串口读取停止.")
+
+    def Manual_Save_Csv(self):
+        if self.dark_cali and self.light_cali:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = folder + f"CaliData_{timestamp}.csv"
+            temp_data = np.concatenate((self.update, self.raw_data, self.dark_cur, self.light_cur), axis = 0)
+            Save_Csv(filename, temp_data)
+        else:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = folder + f"RawData_{timestamp}.csv"
+            Save_Csv(filename, self.raw_data)
 
 
 if __name__ == "__main__":
